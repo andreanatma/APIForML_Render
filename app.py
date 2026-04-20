@@ -4,7 +4,7 @@ import pickle
 
 # Create flask app
 flask_app = Flask(__name__)
-model = pickle.load(open("model.pkl", "rb"))
+model = pickle.load(open("linear_regression_model.pkl", "rb"))
 
 @flask_app.route("/")
 def Home():
