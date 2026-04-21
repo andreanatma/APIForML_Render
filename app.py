@@ -6,13 +6,12 @@ import os
 
 flask_app = Flask(__name__)
 
-# Load Model & Transformer secara langsung agar server error jika gagal (fail-fast)
+# Load Model & Transformer
 try:
     model_obj = pickle.load(open("linear_regression_model.pkl", "rb"))
     transformer_obj = pickle.load(open("transformer.pkl", "rb"))
     print("SUCCESS: Files loaded!")
 except Exception as e:
-    # Ini akan muncul di logs Render jika file pkl bermasalah
     model_obj = None
     transformer_obj = None
     print(f"FAILED TO LOAD PKL: {e}")
@@ -29,18 +28,25 @@ def predict():
             return render_template("index.html", 
                                    prediction_text="Error: Model/Transformer file not found on server or corrupted.")
 
-        # Ambil data
+        # Ambil data dari form
         age = request.form.get('Age')
         gender = request.form.get('Gender')
         blood_type = request.form.get('Blood_Type')
         condition = request.form.get('Medical_Condition')
 
-        # Buat DataFrame
-        df_input = pd.DataFrame([[int(age), gender, blood_type, condition]], 
-                                columns=['Age', 'Gender', 'Blood Type', 'Medical Condition'])
+        # Validasi input tidak kosong
+        if not all([age, gender, blood_type, condition]):
+            return render_template("index.html",
+                                   prediction_text="Error: Semua field harus diisi.")
+
+        # Buat DataFrame dengan nama kolom yang sesuai
+        df_input = pd.DataFrame(
+            [[int(age), gender, blood_type, condition]], 
+            columns=['Age', 'Gender', 'Blood Type', 'Medical Condition']
+        )
         
-        # Gunakan .values untuk keamanan transformasi
-        transformed_data = transformer_obj.transform(df_input.values)
+        # Transform menggunakan DataFrame langsung (tanpa .values)
+        transformed_data = transformer_obj.transform(df_input)
         
         # Prediksi
         prediction = model_obj.predict(transformed_data)
@@ -48,6 +54,8 @@ def predict():
         
         return render_template("index.html", prediction_text=f"Estimated Billing: ${result}")
 
+    except ValueError as ve:
+        return render_template("index.html", prediction_text=f"Error: Input tidak valid - {str(ve)}")
     except Exception as e:
         return render_template("index.html", prediction_text=f"Error Detail: {str(e)}")
 
