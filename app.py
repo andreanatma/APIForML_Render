@@ -4,14 +4,19 @@ from flask import Flask, request, render_template
 import pickle
 import os
 
+# 1. Inisialisasi Flask
 flask_app = Flask(__name__)
 
-# Load model dan transformer
+# 2. Muat Model dan Transformer
+# Menggunakan nama variabel unik untuk menghindari tabrakan dengan tipe data lain
 try:
-    model_billing = pickle.load(open("linear_regression_model.pkl", "rb"))
-    transformer_billing = pickle.load(open("transformer.pkl", "rb"))
+    with open("linear_regression_model.pkl", "rb") as model_file:
+        model_billing = pickle.load(model_file)
+    
+    with open("transformer.pkl", "rb") as transformer_file:
+        transformer_billing = pickle.load(transformer_file)
 except Exception as e:
-    print(f"Error loading files: {e}")
+    print(f"Gagal memuat file pkl: {e}")
 
 @flask_app.route("/")
 def Home():
@@ -20,37 +25,97 @@ def Home():
 @flask_app.route("/predict", methods=["POST"])
 def predict():
     try:
-        # 1. Ambil data dari form
+        # A. Ambil data dari form HTML
         age = request.form.get('Age')
         gender = request.form.get('Gender')
         blood_type = request.form.get('Blood_Type')
         condition = request.form.get('Medical_Condition')
 
-        # 2. Susun ke dalam DataFrame
-        # Urutan harus PERSIS: Age, Gender, Blood Type, Medical Condition
+        # B. Susun ke dalam DataFrame dengan URUTAN yang benar
+        # Urutan wajib: Age -> Gender -> Blood Type -> Medical Condition
         df_input = pd.DataFrame([[int(age), gender, blood_type, condition]], 
                                 columns=['Age', 'Gender', 'Blood Type', 'Medical Condition'])
         
-        # 3. Transformasi data
-        # TIPS: Kita gunakan .values untuk menghindari error "Feature names mismatch"
-        # Ini memaksa sklearn hanya melihat urutan kolom, bukan namanya.
+        # C. SOLUSI UTAMA: Gunakan .values
+        # Ini akan mengirim data dalam bentuk array murni ke transformer
+        # sehingga Sklearn tidak akan komplain soal "Feature Names Mismatch"
         input_data = df_input.values
+        
+        # D. Jalankan Transformasi (OneHotEncoding)
         transformed_data = transformer_billing.transform(input_data)
         
-        # 4. Prediksi
+        # E. Jalankan Prediksi menggunakan model Linear Regression
         prediction = model_billing.predict(transformed_data)
-        output = "{:,.2f}".format(prediction[0])
+        
+        # F. Format hasil angka (ambil index 0 karena outputnya array)
+        result = "{:,.2f}".format(prediction[0])
         
         return render_template("index.html", 
-                               prediction_text=f"Estimated Billing Amount: ${output}")
+                               prediction_text=f"Estimated Billing Amount: ${result}")
 
     except Exception as e:
-        # Jika error, tampilkan detailnya di halaman web
-        return render_template("index.html", prediction_text=f"Error Detail: {str(e)}")
+        # Menampilkan detail error di halaman jika terjadi kegagalan logika
+        return render_template("index.html", 
+                               prediction_text=f"Error Detail: {str(e)}")
 
 if __name__ == "__main__":
+    # Penting: Gunakan os.environ agar Render bisa menentukan Port secara dinamis
     port = int(os.environ.get("PORT", 5000))
     flask_app.run(host='0.0.0.0', port=port)
+
+# import numpy as np
+# import pandas as pd
+# from flask import Flask, request, render_template
+# import pickle
+# import os
+
+# flask_app = Flask(__name__)
+
+# # Load model dan transformer
+# try:
+#     model_billing = pickle.load(open("linear_regression_model.pkl", "rb"))
+#     transformer_billing = pickle.load(open("transformer.pkl", "rb"))
+# except Exception as e:
+#     print(f"Error loading files: {e}")
+
+# @flask_app.route("/")
+# def Home():
+#     return render_template("index.html")
+
+# @flask_app.route("/predict", methods=["POST"])
+# def predict():
+#     try:
+#         # 1. Ambil data dari form
+#         age = request.form.get('Age')
+#         gender = request.form.get('Gender')
+#         blood_type = request.form.get('Blood_Type')
+#         condition = request.form.get('Medical_Condition')
+
+#         # 2. Susun ke dalam DataFrame
+#         # Urutan harus PERSIS: Age, Gender, Blood Type, Medical Condition
+#         df_input = pd.DataFrame([[int(age), gender, blood_type, condition]], 
+#                                 columns=['Age', 'Gender', 'Blood Type', 'Medical Condition'])
+        
+#         # 3. Transformasi data
+#         # TIPS: Kita gunakan .values untuk menghindari error "Feature names mismatch"
+#         # Ini memaksa sklearn hanya melihat urutan kolom, bukan namanya.
+#         input_data = df_input.values
+#         transformed_data = transformer_billing.transform(input_data)
+        
+#         # 4. Prediksi
+#         prediction = model_billing.predict(transformed_data)
+#         output = "{:,.2f}".format(prediction[0])
+        
+#         return render_template("index.html", 
+#                                prediction_text=f"Estimated Billing Amount: ${output}")
+
+#     except Exception as e:
+#         # Jika error, tampilkan detailnya di halaman web
+#         return render_template("index.html", prediction_text=f"Error Detail: {str(e)}")
+
+# if __name__ == "__main__":
+#     port = int(os.environ.get("PORT", 5000))
+#     flask_app.run(host='0.0.0.0', port=port)
 
 # import numpy as np
 # import pandas as pd
